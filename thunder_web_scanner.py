@@ -1,13 +1,10 @@
-import os
 import subprocess
 import argparse
-from colorama import Fore, Style, init
-
-# Initialize colorama
-init(autoreset=True)
+import shutil
 
 # ========== BANNER ==========
-BANNER = Fore.CYAN + r'''
+BANNER = '''
+\033[96m
   _____ _                     _            __        __   _     
  |_   _| |__  _   _ _ __   __| | ___ _ __  \ \      / /__| |__  
    | | | '_ \| | | | '_ \ / _` |/ _ \ '__|  \ \ /\ / / _ \ '_ \ 
@@ -18,67 +15,67 @@ BANNER = Fore.CYAN + r'''
   ___) | (_| (_| | | | | | | |  __/ |                           
  |____/ \___\__,_|_| |_|_| |_|\___|_|                           
 
-''' + Style.RESET_ALL + Fore.YELLOW + r'''
-                   ⚡ Thunder Web Scanner ⚡
-        Automated Directory & Domain Recon Tool
-''' + Style.RESET_ALL
+           ⚡ Thunder Web Scanner ⚡
+ Subdomains | Directories | Services | Technologies
+\033[0m
+'''
 
-# ========== TOOL CONFIG ==========
 TOOLS = {
-    "dirb": "dirb",
+    "subfinder": "subfinder",
+    "amass": "amass",
+    "dnsenum": "dnsenum",
     "gobuster": "gobuster",
     "ffuf": "ffuf",
-    "dnsenum": "dnsenum",
-    "amass": "amass",
-    "subfinder": "subfinder",
-    "wget": "wget"
+    "nmap": "nmap",
+    "whatweb": "whatweb"
 }
 
-# ========== COMMAND EXECUTOR ==========
+def check_tool(tool):
+    return shutil.which(tool) is not None
+
 def run_command(command, title):
-    print(Fore.GREEN + f"\n[+] Running: {title}\n" + Fore.WHITE + "="*60)
+    print(f"\n\033[92m[+] Running: {title}\033[0m\n{'='*60}")
     try:
         subprocess.run(command, shell=True, check=True)
     except subprocess.CalledProcessError:
-        print(Fore.RED + f"[!] Error running: {title}")
+        print(f"\033[91m[!] Failed: {title}\033[0m")
 
 # ========== MODULES ==========
-def run_dir_scanners(target):
-    run_command(f"{TOOLS['dirb']} http://{target}", "DIRB Scanner")
-    run_command(f"{TOOLS['gobuster']} dir -u http://{target} -w /usr/share/wordlists/dirb/common.txt", "Gobuster Scanner")
-    run_command(f"{TOOLS['ffuf']} -u http://{target}/FUZZ -w /usr/share/wordlists/dirb/common.txt", "FFUF Scanner")
+def scan_subdomains(domain):
+    if check_tool("subfinder"):
+        run_command(f"subfinder -d {domain}", "Subfinder")
+    if check_tool("amass"):
+        run_command(f"amass enum -d {domain}", "Amass Subdomain Enum")
+    if check_tool("dnsenum"):
+        run_command(f"dnsenum {domain}", "DNSenum")
 
-def run_subdomain_scanners(domain):
-    run_command(f"{TOOLS['dnsenum']} {domain}", "DNSenum")
-    run_command(f"{TOOLS['amass']} enum -d {domain}", "Amass Subdomain Enum")
-    run_command(f"{TOOLS['subfinder']} -d {domain}", "Subfinder")
+def scan_directories(domain):
+    if check_tool("gobuster"):
+        run_command(f"gobuster dir -u http://{domain} -w /usr/share/wordlists/dirb/common.txt", "Gobuster Directory Scan")
+    elif check_tool("ffuf"):
+        run_command(f"ffuf -u http://{domain}/FUZZ -w /usr/share/wordlists/dirb/common.txt", "FFUF Directory Scan")
 
-def run_page_crawler(domain):
-    run_command(f"{TOOLS['wget']} --spider --recursive --level=1 --no-parent http://{domain}", "Wget Spider (no download)")
+def scan_services(domain):
+    if check_tool("nmap"):
+        run_command(f"nmap -sV -Pn {domain}", "Nmap Service & Version Detection")
+
+def scan_technologies(domain):
+    if check_tool("whatweb"):
+        run_command(f"whatweb http://{domain}", "WhatWeb Technology Fingerprint")
 
 # ========== MAIN ==========
 def main():
     print(BANNER)
-
-    parser = argparse.ArgumentParser(description="Thunder Web Scanner: Automated Recon & Enumeration Tool")
-    parser.add_argument("target", help="Target IP or domain")
-    parser.add_argument("--dir", action="store_true", help="Run directory scanners")
-    parser.add_argument("--sub", action="store_true", help="Run subdomain scanners")
-    parser.add_argument("--crawl", action="store_true", help="Run page crawler")
+    parser = argparse.ArgumentParser(description="Thunder Web Scanner: Subdomains, Directories, Services, Tech Detection")
+    parser.add_argument("target", help="Target domain or IP (e.g., example.com)")
     args = parser.parse_args()
 
-    if not (args.dir or args.sub or args.crawl):
-        print(Fore.RED + "[!] No scan type selected. Use --dir, --sub, and/or --crawl.")
-        return
+    scan_subdomains(args.target)
+    scan_directories(args.target)
+    scan_services(args.target)
+    scan_technologies(args.target)
 
-    if args.dir:
-        run_dir_scanners(args.target)
-    if args.sub:
-        run_subdomain_scanners(args.target)
-    if args.crawl:
-        run_page_crawler(args.target)
-
-    print(Fore.CYAN + "\n[✓] Scan complete." + Style.RESET_ALL)
+    print("\n\033[96m[✓] Scan completed successfully.\033[0m")
 
 if __name__ == "__main__":
     main()
